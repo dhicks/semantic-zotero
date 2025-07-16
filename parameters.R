@@ -6,9 +6,9 @@ pdf_folder = '/Users/danhicks/Zotero_pdfs'
 embed_model = 'snowflake-arctic-embed2'
 embedding_dims = 1024
 
-assert_that(test_connection(logical = TRUE), 
+assertthat::assert_that(ollamar::test_connection(logical = TRUE), 
             msg = 'Ollama is not available. Maybe you need to start it?')
-assert_that(model_avail(embed_model))
+assertthat::assert_that(ollamar::model_avail(embed_model))
 
 ## HDF5 index ----
 # index_path = 'index.h5'
