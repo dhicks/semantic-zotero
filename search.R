@@ -56,7 +56,10 @@ embeds = read_rds(embeds_file)
 meta_df = read_rds(meta_file)
 
 ## Embed input text and get k closest values ----
-vec = embed(embed_model, input_text, truncate = FALSE)
+vec = input_text |> 
+    str_squish() |> 
+    str_trunc(max_context * token_coef) |> 
+    embed_text()
 
 prod = {embeds %*% vec}[,1]
 

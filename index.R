@@ -1,5 +1,4 @@
 ## Index: Calculate embeddings
-## let's try it with just vanilla matrices and CSVs
 library(tidyverse)
 library(pdftools)
 library(ollamar)
@@ -29,7 +28,6 @@ embedding_exists = function(source_doc, .meta_dir = meta_dir) {
                      glue('{doc_id(source_doc)}.Rds')))
 }
 
-
 ## List PDFs to index ----
 pdfs = list.files(pdf_folder, 
                   pattern = '*.pdf', 
@@ -41,7 +39,9 @@ message(glue('Found {length(pdfs)} PDFs'))
 do_embedding = function(pdf_path, 
                         force = FALSE,
                         .pdf_folder = pdf_folder, 
-                        .embed_model = embed_model) {
+                        .embed_model = embed_model, 
+                        verbose = FALSE) {
+    if (verbose) message(pdf_path)
     path = here::here(.pdf_folder, pdf_path)
     assert_that(file.exists(path))
 
@@ -52,33 +52,70 @@ do_embedding = function(pdf_path,
 
     id = doc_id(pdf_path)
     
-    ## Extract text and embed
+    ## Extract text
     text = suppressMessages(pdftools::pdf_text(path)) |> 
-        stringr::str_c(collapse = '\n')
+        stringr::str_c(collapse = '\n') |> 
+        stringr::str_squish()
     
     if (str_length(text) < 1) {
         message(glue::glue('No text found in {pdf_path}'))
         return(FALSE)
     }
     
-    embedded = ollamar::embed(.embed_model, text, truncate = FALSE)[,1]
+    ## Split into "pages" and "blocks"
+    ## "page": 1 context width
+    ## "block": set of "pages" to pass to ollama simultaneously
+    # num_pages = str_length(text) %>%
+    #     {. / (max_context * token_coef)} |> 
+    #     ceiling()
+    pages = split_string(text, max_context * token_coef)
+    num_pages = length(pages)
+    if (verbose) message(glue('{num_pages} pages'))
+    
+    str_length(pages) |> 
+        max() |> 
+        magrittr::is_weakly_less_than(max_context * token_coef) |> 
+        assertthat::assert_that(msg = 'Some pages are larger than max context length')
+    
+    block_assignment = 1:num_pages |> 
+        magrittr::subtract(1) |> 
+        magrittr::divide_by_int(block_size) |> 
+        magrittr::add(1)
+    num_blocks = max(block_assignment)
+    if (verbose) message(glue('{num_blocks} blocks'))
+
+    embed_block = function(block,
+                           .block_assignment = block_assignment, 
+                           .pages = pages, 
+                           .num_blocks = num_blocks) {
+        assertthat::assert_that(block <= .num_blocks)
+        block %>% 
+            {which(.block_assignment == .)} %>%
+            {.pages[.]} |> 
+            embed_text() |> 
+            t()
+    }
+    
+    ## Embed all blocks
+    ## num_pages x embedding_dims output matrix
+    embedded = map(1:num_blocks, embed_block, .progress = TRUE) |> 
+        reduce(rbind) |> 
+        magrittr::set_rownames(str_c(id, '||', 1:num_pages))
     
     ## Write embedding
-    embedded |>
-        matrix(nrow = 1) |> 
-        magrittr::set_rownames(id) |> 
-        write_rds(here(embeds_dir, glue('{id}.Rds')))
-    
+    write_rds(embedded, here(embeds_dir, glue('{id}.Rds')))
+
     ## Write metadata
     tibble(doc_id = id, 
            path = pdf_path) |> 
         write_rds(here(meta_dir, glue('{id}.Rds')))
     
-    return(TRUE)
+    return(embedded)
 }
 
 # debugonce(do_embedding)
-# do_embedding(pdfs[1], force = TRUE)
+do_embedding(pdfs[4], force = TRUE, verbose = TRUE) |>
+    str()
 # walk(pdfs[1:10], do_embedding, .progress = TRUE)
 # open_dataset(index_folder) |> 
 #     select(!starts_with('D')) |> 
