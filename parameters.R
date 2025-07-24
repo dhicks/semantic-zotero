@@ -38,7 +38,7 @@ embed_text = function(text, ...) {
     tryCatch({
         base_embed(text, ...)
     }, error = function(e) {
-        beepr::beep(9)
+        # beepr::beep(9)
         message("Error: ", e$message)
         message("Text was:", stringr::str_trunc(text, 300), "\n")
         stop(e)  # or return(NULL) if you prefer

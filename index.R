@@ -61,7 +61,7 @@ do_embedding = function(pdf_path,
     text = suppressMessages(pdftools::pdf_text(path)) |> 
         stringr::str_c(collapse = '\n') |> 
         stringr::str_squish() |> 
-        ## Corner case: sequences like . . . . . . . . . that are tokenized coarsely
+        ## Corner case: sequences like . . . . . . that are tokenized coarsely
         stringr::str_remove_all('( \\.)+')
     
     if (str_length(text) < 1) {
@@ -89,7 +89,7 @@ do_embedding = function(pdf_path,
         magrittr::set_rownames(str_c(id, '||', 1:num_pages))
     
     ## Write embedding
-    write_rds(embedded, here(embeds_dir, glue('{id}.Rds')))
+    write.csv(embedded, here(embeds_dir, glue('{id}.csv')))
     
     ## Write metadata
     tibble(doc_id = id, 
@@ -111,14 +111,23 @@ do_embedding = function(pdf_path,
 
 
 ## Accumulate ----
-embeds = list.files(embeds_dir, pattern = '*.Rds',
-                    full.names = TRUE) |>
-    map(read_rds) |>
-    reduce(rbind)
+## ~30 sec
+tic()
+embeds = list.files(embeds_dir, pattern = '*.csv',
+                    full.names = TRUE) |> 
+    read_csv(progress = TRUE, 
+             col_types = str_c('c', strrep('d', embedding_dims)), 
+             num_threads = parallel::detectCores() - 1) |> 
+    column_to_rownames('...1') |>
+    as.matrix()
+toc()
 write_rds(embeds, embeds_file)
 
+## ~2 sec
+tic()
 meta_df = list.files(meta_dir, pattern = '*.Rds',
                      full.names = TRUE) |>
-    map(read_rds) |>
+    future_map(read_rds, .progress = TRUE) |>
     bind_rows()
+toc()
 write_rds(meta_df, meta_file)

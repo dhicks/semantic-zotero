@@ -25,8 +25,9 @@ parser = arg_parser('Semantic search of my Zotero library',
                  help = 'number of results to return when threshold is not met')
 
 if (interactive()) {
-    input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
-        str_c(collapse = '\n')
+    # input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
+    #     str_c(collapse = '\n')
+    input_text = 'A distinctive aspect of @HicksWhenVirtuesAre2022 version of the aims approach is an analysis of two general "views" of the aims of science'
     threshold = .7
     k = 10
 } else {
@@ -71,6 +72,7 @@ if (length(results) < 1) {
 
 results |> 
     enframe() |> 
-    rename(doc_id = name) |> 
+    separate_wider_delim(name, delim = '||', 
+                         names = c('doc_id', 'part')) |> 
     arrange(desc(value)) |> 
     left_join(meta_df, by = 'doc_id')
