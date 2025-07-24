@@ -1,6 +1,6 @@
 ## Parameters ----
-# pdf_folder = '/Users/danhicks/Zotero_pdfs'
-pdf_folder = '/Users/danhicks/Google Drive/Teaching/Phil Sci RAG'
+pdf_folder = '/Users/danhicks/Zotero_pdfs'
+# pdf_folder = '/Users/danhicks/Google Drive/Teaching/Phil Sci RAG'
 
 ## Ollama ----
 ## This model runs *extremely* slow; ~80 sec *per page* w/ token_coef = 3
@@ -10,23 +10,40 @@ pdf_folder = '/Users/danhicks/Google Drive/Teaching/Phil Sci RAG'
 # max_context = 32768
 # embedding_dims = 1536
 embed_model = 'snowflake-arctic-embed2'
+max_context = 8192
 embedding_dims = 1024
 
 
 # token_coef = 5 * 3/4 ## assumed avg. characters per token
 token_coef = 3     ## empirically, seems to be about what we can manage?
-block_size = 1    ## num. text segments to send to ollama per call
+## Seems faster to parallelize via map() rather than multiple inputs
+block_size = 10    ## num. text segments to send to ollama per call
 
 assertthat::assert_that(ollamar::test_connection(logical = TRUE), 
             msg = 'Ollama is not available. Maybe you need to start it?')
 assertthat::assert_that(ollamar::model_avail(embed_model))
 
-embed_text = purrr::partial(ollamar::embed, 
-                            model = embed_model, 
-                            temperature = 0, ## not sure this matters for embed() though? 
-                            num_ctx = max_context, 
-                            truncate = FALSE ## will throw an error if text is longer than `max_context`
-                            )
+# embed_text = purrr::partial(ollamar::embed, 
+#                             model = embed_model, 
+#                             temperature = 0, ## not sure this matters for embed() though? 
+#                             num_ctx = max_context
+#                             )
+
+embed_text = function(text, ...) {
+    base_embed = purrr::partial(ollamar::embed, 
+                                model = embed_model, 
+                                temperature = 0, ## not sure this matters for embed() though? 
+                                num_ctx = max_context)
+    
+    tryCatch({
+        base_embed(text, ...)
+    }, error = function(e) {
+        beepr::beep(9)
+        message("Error: ", e$message)
+        message("Text was:", stringr::str_trunc(text, 300), "\n")
+        stop(e)  # or return(NULL) if you prefer
+    })
+}
 
 ## HDF5 index ----
 # index_path = 'index.h5'
@@ -61,6 +78,7 @@ meta_file = here(data_dir, 'meta.Rds')
 ## Utility functions ----
 #' Split `string` into pieces of length `n`
 split_string <- function(string, n) {
+    n = floor(n)
     string_length <- stringr::str_length(string)
     if (string_length <= n) {
         return(string)
