@@ -27,7 +27,7 @@ parser = arg_parser('Semantic search of my Zotero library',
 if (interactive()) {
     # input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
     #     str_c(collapse = '\n')
-    input_text = 'A distinctive aspect of @HicksWhenVirtuesAre2022 version of the aims approach is an analysis of two general "views" of the aims of science'
+    input_text = 'Objectivity is a virtue in most circles. As we evaluate our students (even those we don’t like) we try to be objective. As we deliberate on juries, we try to be objective about the accused and the victim, the prosecutor and the defence. As we tote up the evidence for and against a certain position or theory, we try to separate our personal preferences from the argument, or we try to separate the arguer (and our evaluation of him/her) from the case presented. Sometimes we do well at this, sometimes we do less well at it, but we recognize something valuable in the effort.'
     threshold = .7
     k = 10
 } else {
@@ -58,7 +58,8 @@ meta_df = read_rds(meta_file)
 
 ## Embed input text and get k closest values ----
 vec = input_text |> 
-    str_squish() |> 
+    str_squish() %>% 
+    # str_c('query: ', .) |>
     str_trunc(max_context * token_coef) |> 
     embed_text()
 

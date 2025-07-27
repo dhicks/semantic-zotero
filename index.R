@@ -27,7 +27,7 @@ embedding_exists = function(source_doc,
                             .embeds_dir = embeds_dir,
                             .meta_dir = meta_dir) {
     file.exists(here(.embeds_dir, 
-                     glue('{doc_id(source_doc)}.Rds'))) &
+                     glue('{doc_id(source_doc)}.csv'))) &
         file.exists(here(.meta_dir, 
                          glue('{doc_id(source_doc)}.Rds')))
 }
