@@ -17,18 +17,14 @@ embedding_dims = 1024
 # token_coef = 5 * 3/4 ## assumed avg. characters per token
 token_coef = 3     ## empirically, seems to be about what we can manage?
 ## Seems faster to parallelize via map() rather than multiple inputs
-block_size = 10    ## num. text segments to send to ollama per call
+# block_size = 10    ## num. text segments to send to ollama per call
 
 assertthat::assert_that(ollamar::test_connection(logical = TRUE), 
             msg = 'Ollama is not available. Maybe you need to start it?')
 assertthat::assert_that(ollamar::model_avail(embed_model))
 
-# embed_text = purrr::partial(ollamar::embed, 
-#                             model = embed_model, 
-#                             temperature = 0, ## not sure this matters for embed() though? 
-#                             num_ctx = max_context
-#                             )
 
+## Wrapper around embed(), with more details in error messages
 embed_text = function(text, ...) {
     base_embed = purrr::partial(ollamar::embed, 
                                 model = embed_model, 
@@ -40,39 +36,23 @@ embed_text = function(text, ...) {
     }, error = function(e) {
         # beepr::beep(9)
         message("Error: ", e$message)
-        message("Text was:", stringr::str_trunc(text, 300), "\n")
+        message("Text was:", stringr::str_trunc(text, 150), "\n")
         stop(e)  # or return(NULL) if you prefer
     })
 }
 
-## HDF5 index ----
-# index_path = 'index.h5'
-# index_file = H5File$new(index_path, mode = 'a')
-# 
-# open_index = function(.index_file = index_file) {
-#     index <<- .index_file[['index']]
-#     embed_ds <<- index_file[['index']][['embeddings']]
-#     meta_ds <<- index_file[['index']][['metadata']]
-# }
-# 
-# trim_last_row = function(.meta_ds = meta_ds, .embed_ds = embed_ds) {
-#     idx = nrow(embed_ds[,])
-#     .meta_ds$set_extent(c(idx - 1, 2))
-#     .embed_ds$set_extent(c(idx - 1, embedding_dims))
-# }
-
 
 ## File locations ----
-data_dir = here('data')
+data_dir = here::here('data')
 if (!dir.exists(data_dir)) dir.create(data_dir)
 
-embeds_dir = here(data_dir, 'embeds')
+embeds_dir = here::here(data_dir, 'embeds')
 if (!dir.exists(embeds_dir)) dir.create(embeds_dir)
-embeds_file = here(data_dir, 'embeds.Rds')
+embeds_file = here::here(data_dir, 'embeds.Rds')
 
-meta_dir = here(data_dir, 'meta')
+meta_dir = here::here(data_dir, 'meta')
 if (!dir.exists(meta_dir)) dir.create(meta_dir)
-meta_file = here(data_dir, 'meta.Rds')
+meta_file = here::here(data_dir, 'meta.Rds')
 
 
 ## Utility functions ----
@@ -83,7 +63,7 @@ split_string <- function(string, n) {
     if (string_length <= n) {
         return(string)
     }
-    # Where to split
+    # Where::here to split
     start_positions <- seq(1, string_length, by = n)
     end_positions <- pmin(start_positions + n - 1, string_length)
     

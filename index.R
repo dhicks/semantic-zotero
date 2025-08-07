@@ -1,3 +1,5 @@
+## TODO: try <https://ragnar.tidyverse.org/>
+
 ## Index: Calculate embeddings
 library(tidyverse)
 library(pdftools)
@@ -13,7 +15,7 @@ library(tictoc)
 
 source(here('parameters.R'))
 
-# Functions for wrangling filenames ----
+## Functions for wrangling filenames ----
 subdir = \(x)(if_else(str_detect(x, '/'), 
                       str_split_i(x, '/', 1), 
                       '-') |> 
@@ -40,6 +42,7 @@ pdfs = list.files(pdf_folder,
 message(glue('Found {length(pdfs)} PDFs'))
 
 ## Do embedding ----
+## Store embeddings for each PDF as k x max_dims matrix
 do_embedding = function(pdf_path, 
                         force = FALSE,
                         .pdf_folder = pdf_folder, 
@@ -111,6 +114,7 @@ do_embedding = function(pdf_path,
 
 
 ## Accumulate ----
+## Combine the matrices and metadata across all documents
 ## ~30 sec
 tic()
 embeds = list.files(embeds_dir, pattern = '*.csv',
