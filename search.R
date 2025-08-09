@@ -1,54 +1,62 @@
 ## Search
 suppressMessages({
-    library(tidyverse)
-    library(pdftools)
-    library(ollamar)
-    
-    library(argparser)
-    library(here)
-    library(assertthat)
-    library(glue)
-    
-    source(here('parameters.R'))
+      library(tidyverse)
+      library(pdftools)
+      library(ollamar)
+
+      library(argparser)
+      library(here)
+      library(assertthat)
+      library(glue)
+
+      source(here('parameters.R'))
 })
 
 ## Inputs ----
-parser = arg_parser('Semantic search of my Zotero library', 
-                    hide.opts = TRUE) |> 
-    add_argument('text', help = 'text to search against', 
-                 default = 'foo') |> 
-    add_argument('-f', help = 'flag to indicate text is a file', 
-                 flag = TRUE) |> 
-    add_argument('--threshold', default = .7, short = '-t', 
-                 help = 'similarity threshold') |> 
-    add_argument('-k', default = 10, 
-                 help = 'number of results to return when threshold is not met')
+parser = arg_parser('Semantic search of my Zotero library', hide.opts = TRUE) |>
+      add_argument('text', help = 'text to search against', default = 'foo') |>
+      add_argument(
+            '-f',
+            help = 'flag to indicate text is a file',
+            flag = TRUE
+      ) |>
+      add_argument(
+            '--threshold',
+            default = .7,
+            short = '-t',
+            help = 'similarity threshold'
+      ) |>
+      add_argument(
+            '-k',
+            default = 10,
+            help = 'number of results to return when threshold is not met'
+      )
 
 if (interactive()) {
-    # input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
-    #     str_c(collapse = '\n')
-    input_text = 'Objectivity is a virtue in most circles. As we evaluate our students (even those we don’t like) we try to be objective. As we deliberate on juries, we try to be objective about the accused and the victim, the prosecutor and the defence. As we tote up the evidence for and against a certain position or theory, we try to separate our personal preferences from the argument, or we try to separate the arguer (and our evaluation of him/her) from the case presented. Sometimes we do well at this, sometimes we do less well at it, but we recognize something valuable in the effort.'
-    threshold = .7
-    k = 10
+      # input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
+      #     str_c(collapse = '\n')
+      input_text = 'Objectivity is a virtue in most circles. As we evaluate our students (even those we don’t like) we try to be objective. As we deliberate on juries, we try to be objective about the accused and the victim, the prosecutor and the defence. As we tote up the evidence for and against a certain position or theory, we try to separate our personal preferences from the argument, or we try to separate the arguer (and our evaluation of him/her) from the case presented. Sometimes we do well at this, sometimes we do less well at it, but we recognize something valuable in the effort.'
+      threshold = .7
+      k = 10
 } else {
-    argv = parse_args(parser)
-    if (!argv$f) {
-        input_text = argv$text
-    } else {
-        path = argv$text
-        assert_that(file.exists(path))
-        type = tools::file_ext(path)
-        if (type == 'pdf') {
-            input_text = path |> 
-                pdf_text() |> 
-                str_c(collapse = '\n')
-        } else {
-            input_text = read_file(path)
-        }
-        assert_that(length(input_text) > 0)
-    }
-    threshold = argv$threshold
-    k = argv$k
+      argv = parse_args(parser)
+      if (!argv$f) {
+            input_text = argv$text
+      } else {
+            path = argv$text
+            assert_that(file.exists(path))
+            type = tools::file_ext(path)
+            if (type == 'pdf') {
+                  input_text = path |>
+                        pdf_text() |>
+                        str_c(collapse = '\n')
+            } else {
+                  input_text = read_file(path)
+            }
+            assert_that(length(input_text) > 0)
+      }
+      threshold = argv$threshold
+      k = argv$k
 }
 
 
@@ -57,23 +65,25 @@ embeds = read_rds(embeds_file)
 meta_df = read_rds(meta_file)
 
 ## Embed input text and get k closest values ----
-vec = input_text |> 
-    str_squish() %>% 
-    # str_c('query: ', .) |>
-    str_trunc(max_context * token_coef) |> 
-    embed_text()
+vec = input_text |>
+      str_squish() %>%
+      # str_c('query: ', .) |>
+      str_trunc(max_context * token_coef) |>
+      embed_text()
 
-prod = {embeds %*% vec}[,1]
+prod = {
+      embeds %*% vec
+}[, 1]
 
 results = keep(prod, ~ . > threshold)
 if (length(results) < 1) {
-    message(glue('No hits above threshold; returning top {k}'))
-    results = prod[order(prod, decreasing = TRUE)[1:k]]
+      message(glue('No hits above threshold; returning top {k}'))
+      results = prod[order(prod, decreasing = TRUE)[1:k]]
 }
 
-results |> 
-    enframe() |> 
-    separate_wider_delim(name, delim = '||', 
-                         names = c('doc_id', 'part')) |> 
-    arrange(desc(value)) |> 
-    left_join(meta_df, by = 'doc_id')
+results |>
+      enframe() |>
+      top_n(k, value) |>
+      separate_wider_delim(name, delim = '||', names = c('doc_id', 'part')) |>
+      arrange(desc(value)) |>
+      left_join(meta_df, by = 'doc_id')

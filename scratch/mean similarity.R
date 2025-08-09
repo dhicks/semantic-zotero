@@ -1,6 +1,6 @@
 ## Check mean similarity across "pages" within each document
 library(tidyverse)
-library(ollamar)
+# library(ollamar)
 
 library(here)
 library(assertthat)
@@ -40,10 +40,12 @@ sims_df |>
     summary()
 
 ggplot(sims_df, aes(mean)) +
-    # stat_density()
-    stat_ecdf()
+    geom_rug() +
+    stat_density()
+    # stat_ecdf()
 
 ## Mean of sd is somewhere around 0.1
 ## lots of non-finite SDs because a 2x2 will only have 1 off-diagonal element
 ggplot(sims_df, aes(sd)) +
+    geom_rug() +
     stat_density()

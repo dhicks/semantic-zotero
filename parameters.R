@@ -3,13 +3,20 @@ pdf_folder = '/Users/danhicks/Zotero_pdfs'
 # pdf_folder = '/Users/danhicks/Google Drive/Teaching/Phil Sci RAG'
 
 ## Ollama ----
+########
 ## This model runs *extremely* slow; ~80 sec *per page* w/ token_coef = 3
 # ## <https://ollama.com/eradeo/inf-retriever-v1-1.5B-causal-F16>
 # ## <https://huggingface.co/infly/inf-retriever-v1-1.5b>
 # embed_model = 'ollama.com/eradeo/inf-retriever-v1-1.5B-causal-F16'
 # max_context = 32768
 # embedding_dims = 1536
-embed_model = 'snowflake-arctic-embed2'
+#########
+## Tried this first; but after testing, it was just really bad at document self-similarity
+# embed_model = 'snowflake-arctic-embed2'
+# max_context = 8192
+# embedding_dims = 1024
+#########
+embed_model = 'bge-m3'
 max_context = 8192
 embedding_dims = 1024
 
@@ -25,11 +32,14 @@ assertthat::assert_that(ollamar::model_avail(embed_model))
 
 
 ## Wrapper around embed(), with more details in error messages
-embed_text = function(text, ...) {
+embed_text = function(text, 
+                      .embed_model = embed_model, 
+                      .max_context = max_context, 
+                      ...) {
     base_embed = purrr::partial(ollamar::embed, 
-                                model = embed_model, 
+                                model = .embed_model, 
                                 temperature = 0, ## not sure this matters for embed() though? 
-                                num_ctx = max_context)
+                                num_ctx = .max_context)
     
     tryCatch({
         base_embed(text, ...)
