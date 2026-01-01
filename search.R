@@ -22,22 +22,24 @@ parser = arg_parser('Semantic search of my Zotero library', hide.opts = TRUE) |>
       ) |>
       add_argument(
             '--threshold',
-            default = .7,
+            default = .6,
             short = '-t',
             help = 'similarity threshold'
       ) |>
       add_argument(
             '-k',
-            default = 10,
+            default = 15,
             help = 'number of results to return when threshold is not met'
       )
 
 if (interactive()) {
-      # input_text = pdf_text('/Users/danhicks/Google Drive/Teaching/Phil Sci RAG/Kovaka-Evaluating community science.pdf') |>
-      #     str_c(collapse = '\n')
-      input_text = 'Objectivity is a virtue in most circles. As we evaluate our students (even those we don’t like) we try to be objective. As we deliberate on juries, we try to be objective about the accused and the victim, the prosecutor and the defence. As we tote up the evidence for and against a certain position or theory, we try to separate our personal preferences from the argument, or we try to separate the arguer (and our evaluation of him/her) from the case presented. Sometimes we do well at this, sometimes we do less well at it, but we recognize something valuable in the effort.'
-      threshold = .7
-      k = 10
+      input_text = pdf_text(
+            '/Users/danhicks/Zotero_pdfs/Hilligardt/Hilligardt-Partisan science and the democratic legitimacy ide.pdf'
+      ) |>
+            str_c(collapse = '\n')
+      # input_text = 'implicature and racist dogwhistles'
+      threshold = .6
+      k = 15
 } else {
       argv = parse_args(parser)
       if (!argv$f) {
@@ -83,7 +85,8 @@ if (length(results) < 1) {
 
 results |>
       enframe() |>
-      top_n(k, value) |>
       separate_wider_delim(name, delim = '||', names = c('doc_id', 'part')) |>
+      summarize(value = max(value), part = list(part), .by = doc_id) |>
+      top_n(k, value) |>
       arrange(desc(value)) |>
       left_join(meta_df, by = 'doc_id')
