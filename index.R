@@ -2,9 +2,10 @@
 
 ## Index: Calculate embeddings
 library(tidyverse)
-library(pdftools)
+# library(pdftools) ## Using pymupdf via multi_column.R and multi_column.py
 library(ollamar)
 library(furrr)
+plan(multisession, workers = 14)
 
 library(here)
 library(assertthat)
@@ -12,6 +13,7 @@ library(glue)
 library(tictoc)
 
 source(here('parameters.R'))
+source(here('multi_column.R'))
 
 ## Functions for wrangling filenames ----
 subdir = \(x) {
@@ -45,8 +47,10 @@ do_embedding = function(
       pdf_path,
       force = FALSE,
       .pdf_folder = pdf_folder,
-      truncate = FALSE,
-      verbose = FALSE
+      verbose = FALSE,
+      truncate = TRUE,
+      pad = 500,
+      ...
 ) {
       if (verbose) {
             message(pdf_path)
@@ -64,14 +68,13 @@ do_embedding = function(
       id = doc_id(pdf_path)
 
       ## Extract text
-      text = suppressMessages(pdftools::pdf_text(path)) |>
-            stringr::str_c(collapse = '\n') |>
+      # text = suppressMessages(pdftools::pdf_text(path)) |>
+      text = extract_text(path, ...) |>
             stringr::str_squish() |>
             ## Corner case: sequences like . . . . . . that are tokenized coarsely
             stringr::str_remove_all('( \\.)+')
-
       if (str_length(text) < 1) {
-            message(glue::glue('No text found in {pdf_path}'))
+            cli::cli_alert_danger('No text found in {path}')
             return(FALSE)
       }
 
@@ -92,7 +95,10 @@ do_embedding = function(
       ## Embed all pages
       ## num_pages x embedding_dims output matrix
       embedded = pages |>
-            map(~ embed_text(.x, truncate = truncate), .progress = id) |>
+            map(
+                  ~ embed_text(.x, truncate = truncate, pad = pad),
+                  .progress = id
+            ) |>
             reduce(cbind) |>
             t() |>
             magrittr::set_rownames(str_c(id, '||', 1:num_pages))
@@ -111,14 +117,40 @@ do_embedding = function(
 # mirai::daemons(NULL)
 # mirai::daemons(5)
 # tic()
-# do_embedding(pdfs[134], truncate = TRUE, force = TRUE, verbose = TRUE) |> str()
+# debugonce(extract_text)
+# extract_text(
+#       here(
+#             pdf_folder,
+#             'Singh/Singh-Handbook of Recidivism RiskNeeds Assessment Tools.pdf'
+#       )
+# )
+# do_embedding(
+#       pdfs[11807],
+#       truncate = TRUE,
+#       force = FALSE,
+#       verbose = TRUE,
+#       pad = 3000
+# ) |>
+#       str()
 # toc()
 
 {
       # plan(multisession, workers = 14) # `futures` approach
       # mirai::daemons(NULL) # `purrr` 1.1.0 approach; tests indicate parallelization doesn't run any faster
       tic()
-      walk(pdfs, ~ do_embedding(., truncate = TRUE), .progress = TRUE)
+      walk(
+            cli::cli_progress_along(
+                  pdfs,
+                  format = '{cli::pb_spin} Document {cli::pb_current} / {cli::pb_total}: {pdfs[cli::pb_current]}'
+            ),
+            ~ do_embedding(
+                  pdfs[.],
+                  truncate = TRUE,
+                  verbose = FALSE,
+                  pad = 1000
+            ),
+            # .progress = TRUE
+      )
       toc()
 }
 

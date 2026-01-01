@@ -3,4 +3,6 @@
 .RData
 .Ruserdata
 data/
+data_8092/
 scratch/
+__pycache__/
