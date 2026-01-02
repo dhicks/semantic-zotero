@@ -50,7 +50,7 @@ if (interactive()) {
             type = tools::file_ext(path)
             if (type == 'pdf') {
                   input_text = path |>
-                        pdf_text() |>
+                        pdf_text() |> ## TODO: pass this through multi_column.R::extract_text() instead
                         str_c(collapse = '\n')
             } else {
                   input_text = read_file(path)
