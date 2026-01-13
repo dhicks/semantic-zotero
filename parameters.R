@@ -96,3 +96,11 @@ split_string <- function(string, n) {
 
       stringr::str_sub(string, start_positions, end_positions)
 }
+
+#' Check if a string is a file, possibly removing a wrapping pair of single quotes
+check_file = function(text) {
+      text |>
+            stringr::str_remove('^\'') |>
+            stringr::str_remove('\'$') |>
+            file.exists()
+}

@@ -12,53 +12,65 @@ suppressMessages({
       source(here('parameters.R'))
 })
 
-## Inputs ----
-parser = arg_parser('Semantic search of my Zotero library', hide.opts = TRUE) |>
-      add_argument('text', help = 'text to search against', default = 'foo') |>
-      add_argument(
-            '-f',
-            help = 'flag to indicate text is a file',
-            flag = TRUE
-      ) |>
-      add_argument(
-            '--threshold',
-            default = .6,
-            short = '-t',
-            help = 'similarity threshold'
-      ) |>
-      add_argument(
-            '-k',
-            default = 15,
-            help = 'number of results to return when threshold is not met'
-      )
 
+## Inputs ----
 if (interactive()) {
-      input_text = pdf_text(
-            '/Users/danhicks/Zotero_pdfs/Hilligardt/Hilligardt-Partisan science and the democratic legitimacy ide.pdf'
-      ) |>
-            str_c(collapse = '\n')
+      input_text = '/Users/danhicks/Zotero_pdfs/Cartwright/Cartwright-The\ Truth\ Doesn\'t\ Explain\ Much.pdf'
       # input_text = 'implicature and racist dogwhistles'
-      threshold = .6
+      threshold = .7
       k = 15
+      argv = list(f = FALSE, json = FALSE) ## dummy for argument parser
 } else {
+      parser = arg_parser(
+            'Semantic search of my Zotero library',
+            hide.opts = TRUE
+      ) |>
+            add_argument(
+                  'text',
+                  help = 'text to search against',
+                  default = 'foo'
+            ) |>
+            add_argument(
+                  '-f',
+                  help = 'flag to indicate text is a file',
+                  flag = TRUE
+            ) |>
+            add_argument(
+                  '--threshold',
+                  default = .7,
+                  short = '-t',
+                  help = 'similarity threshold'
+            ) |>
+            add_argument(
+                  '-k',
+                  default = 15,
+                  help = 'number of results to return when threshold is not met'
+            ) |>
+            add_argument(
+                  '--json',
+                  help = 'output JSON rather than printing the results table',
+                  flag = TRUE
+            )
+
       argv = parse_args(parser)
-      if (!argv$f) {
-            input_text = argv$text
-      } else {
-            path = argv$text
-            assert_that(file.exists(path))
-            type = tools::file_ext(path)
-            if (type == 'pdf') {
-                  input_text = path |>
-                        pdf_text() |> ## TODO: pass this through multi_column.R::extract_text() instead
-                        str_c(collapse = '\n')
-            } else {
-                  input_text = read_file(path)
-            }
-            assert_that(length(input_text) > 0)
-      }
+      input_text = argv$text
       threshold = argv$threshold
       k = argv$k
+}
+
+if (argv$f || check_file(input_text)) {
+      type = tools::file_ext(input_text)
+      cli::cli_alert_info('Treating input text as file path')
+      if (identical(type, 'pdf')) {
+            source('multi_column.R')
+            input_text = input_text |>
+                  extract_text(input_text)
+      } else {
+            input_text = read_file(input_text)
+      }
+      assert_that(length(input_text) > 0)
+} else {
+      cli::cli_alert_info('Treating input text as text')
 }
 
 
@@ -73,20 +85,25 @@ vec = input_text |>
       str_trunc(max_context * token_coef) |>
       embed_text()
 
-prod = {
-      embeds %*% vec
-}[, 1]
+prod = (embeds %*% vec)[, 1]
 
 results = keep(prod, ~ . > threshold)
 if (length(results) < 1) {
-      message(glue('No hits above threshold; returning top {k}'))
-      results = prod[order(prod, decreasing = TRUE)[1:k]]
+      cli::cli_alert_warning('No hits above threshold; returning top {k}')
+      results = prod[order(prod, decreasing = TRUE)[1:(3 * k)]]
 }
 
-results |>
+results_df = results |>
       enframe() |>
       separate_wider_delim(name, delim = '||', names = c('doc_id', 'part')) |>
       summarize(value = max(value), part = list(part), .by = doc_id) |>
       top_n(k, value) |>
       arrange(desc(value)) |>
-      left_join(meta_df, by = 'doc_id')
+      left_join(meta_df, by = 'doc_id') |>
+      mutate(path = here(pdf_folder, path))
+
+if (!argv$json) {
+      print(results_df)
+} else {
+      jsonlite::toJSON(results_df)
+}

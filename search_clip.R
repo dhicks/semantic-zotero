@@ -1,15 +1,8 @@
-## Check if text is a file, possibly removing a wrapping pair of single quotes
-check_file = function(text) {
-      text |>
-            stringr::str_remove('^\'') |>
-            stringr::str_remove('\'$') |>
-            file.exists()
-}
-
-
 setwd(this.path::here())
 text = clipr::read_clip(allow_non_interactive = TRUE) |>
       stringr::str_c(collapse = '\n')
+
+source('parameters.R')
 
 if (check_file(text)) {
       cli::cli_alert_info('Treating clipboard text as file path')
